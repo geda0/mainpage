@@ -105,14 +105,10 @@
         const clock = new THREE.Clock();
         let mixer;
         let character;
-
-
-        // Add color picker functionality
-        const bgColorPicker = document.getElementById('bgColorPicker');
-        bgColorPicker.addEventListener('input', () => {
-            renderer.setClearColor(bgColorPicker.value);
-        });
-
+        let stickmanArmAngle = 0;
+        let stickmanLegAngle = 0;
+        const stickmanArmSpeed = 0.1;
+        const stickmanLegSpeed = 0.15;
         // Settings data structure
         const settings = {
             clearColor: '#000000',
@@ -122,23 +118,63 @@
             rainSpeed: 4
         };
 
-        // Rain system setup
-        const rainColorPicker = document.getElementById('rainColorPicker');
-        rainColorPicker.addEventListener('input', () => {
-            settings.rainColor = rainColorPicker.value;
-        });
-
         const rainGeo = new THREE.SphereGeometry(0.5, 8, 8);
         const rainMaterial = new THREE.MeshBasicMaterial({ color: settings.rainColor, transparent: true, opacity: 0.5 });
         const rain = [];
         const rainHeight = settings.rainHeight;
         const rainSpeed = settings.rainSpeed;
 
+
+        // Add color picker functionality
+        const bgColorPicker = document.getElementById('bgColorPicker');
+        bgColorPicker.addEventListener('input', () => {
+            renderer.setClearColor(bgColorPicker.value);
+        });
+
+
+        // Rain system setup
+        const rainColorPicker = document.getElementById('rainColorPicker');
+        rainColorPicker.addEventListener('input', () => {
+            settings.rainColor = rainColorPicker.value;
+        });
+
+
         for (let i = 0; i < settings.rainCount; i++) {
             const raindrop = new THREE.Mesh(rainGeo, rainMaterial);
             raindrop.position.set(Math.random() * 400 - 200, Math.random() * rainHeight, Math.random() * 500 - 200);
             scene.add(raindrop);
             rain.push(raindrop);
+        }
+
+        function createStickman() {
+            const stickmanMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+            const head = new THREE.Mesh(new THREE.SphereGeometry(10), stickmanMaterial);
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 40), stickmanMaterial);
+            const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 40), stickmanMaterial);
+            const leg2 = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 40), stickmanMaterial);
+            const arm1 = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 40), stickmanMaterial);
+            const arm2 = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 40), stickmanMaterial);
+
+            head.position.y = 60;
+            body.position.y = 30;
+            leg1.position.set(0, 0, 10);
+            leg2.position.set(0, 0, -10);
+            arm1.position.set(0, 30, 20);
+            arm2.position.set(0, 30, -20);
+            leg1.rotation.x = Math.PI / 2;
+            leg2.rotation.x = Math.PI / 2;
+            arm1.rotation.z = Math.PI / 2;
+            arm2.rotation.z = Math.PI / 2;
+
+            const stickman = new THREE.Group();
+            stickman.add(head);
+            stickman.add(body);
+            stickman.add(leg1);
+            stickman.add(leg2);
+            stickman.add(arm1);
+            stickman.add(arm2);
+
+            return stickman;
         }
 
         async function loadCharacterModel(modelPath) {
@@ -149,6 +185,7 @@
                     action.play();
                     character = object;
                     character.position.set(0, 0, 0);
+                    scene.remove(stickman);
                     scene.add(character);
                     resolve();
                 }, undefined, reject);
@@ -166,19 +203,36 @@
         const model2Button = document.getElementById('model-2');
         const modelSelection = document.getElementById('model-selection');
 
+        const stickman = createStickman();
         model1Button.addEventListener('click', async () => {
             modelSelection.style.display = 'none';
+            scene.add(stickman);
             await loadCharacterModel('models/Ch03_nonPBR.fbx');
         });
 
         model2Button.addEventListener('click', async () => {
             modelSelection.style.display = 'none';
+            scene.add(stickman);
             await loadCharacterModel('models/Ch03_nonPBR.fbx');
         });
+
+        function animateStickman() {
+            stickmanArmAngle += stickmanArmSpeed;
+            stickmanLegAngle += stickmanLegSpeed;
+
+            stickman.children[4].rotation.x = Math.sin(stickmanArmAngle) * 0.5; // Left arm
+            stickman.children[5].rotation.x = -Math.sin(stickmanArmAngle) * 0.5; // Right arm
+
+            stickman.children[2].rotation.z = Math.sin(stickmanLegAngle) * 0.5; // Left leg
+            stickman.children[3].rotation.z = -Math.sin(stickmanLegAngle) * 0.5; // Right leg
+        }
 
         const animate = function () {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
+
+            // Stickman animation update
+            animateStickman();
 
             // Character animation update
             updateCharacter(delta);
