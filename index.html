@@ -141,14 +141,47 @@
             rain.push(raindrop);
         }
 
-        // (continue with the rest of the code)
+        async function loadCharacterModel(modelPath) {
+            return new Promise((resolve, reject) => {
+                loader.load(modelPath, (object) => {
+                    mixer = new THREE.AnimationMixer(object);
+                    const action = mixer.clipAction(object.animations[0]);
+                    action.play();
+                    character = object;
+                    character.position.set(0, 0, 0);
+                    scene.add(character);
+                    resolve();
+                }, undefined, reject);
+            });
+        }
+
+        function updateCharacter(delta) {
+            if (mixer) {
+                mixer.update(delta);
+            }
+        }
+
+        // Add character model
+        const model1Button = document.getElementById('model-1');
+        const model2Button = document.getElementById('model-2');
+        const modelSelection = document.getElementById('model-selection');
+
+        model1Button.addEventListener('click', async () => {
+            modelSelection.style.display = 'none';
+            await loadCharacterModel('models/Ch03_nonPBR.fbx');
+        });
+
+        model2Button.addEventListener('click', async () => {
+            modelSelection.style.display = 'none';
+            await loadCharacterModel('models/Ch03_nonPBR.fbx');
+        });
 
         const animate = function () {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
 
             // Character animation update
-            // updateCharacter(delta);
+            updateCharacter(delta);
 
             // Rain system
             const rainColor = new THREE.Color(settings.rainColor);
