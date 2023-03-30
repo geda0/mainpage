@@ -4,58 +4,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Animated Character with Rain</title>
+    <title>3D Animated Character Game</title>
     <style>
         body {
             margin: 0;
+            overflow: hidden;
         }
 
         canvas {
             display: block;
         }
 
-        #controls {
+        #model-selection {
             position: fixed;
-            top: 10px;
-            left: 10px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
 
-        #model-list,
-        #animation-list {
-            position: fixed;
-            right: 10px;
-            padding: 10px;
-            border: 1px solid white;
+        .model-button {
+            padding: 10px 20px;
+            background-color: white;
+            border: 1px solid black;
             border-radius: 5px;
-            background-color: rgba(0, 0, 0, 0.6);
-            color: white;
+            margin: 10px;
             cursor: pointer;
-        }
-
-        #model-list {
-            top: 10px;
-        }
-
-        #animation-list {
-            bottom: 20px;
-        }
-
-        .list-item {
-            margin-bottom: 5px;
         }
     </style>
 </head>
 
 <body>
-    <div id="controls">
-        <label>Background Color: <input type="color" id="bgColorPicker" value="#000000"></label><br>
-        <label>Raindrop Color: <input type="color" id="rainColorPicker" value="#00aaff"></label>
-    </div>
-    <div id="model-list">
-        <h3>Models:</h3>
-    </div>
-    <div id="animation-list">
-        <h3>Animations:</h3>
+    <div id="model-selection">
+        <h2 style="color: white;">Select Your Character</h2>
+        <button id="model-1" class="model-button">Model 1</button>
+        <button id="model-2" class="model-button">Model 2</button>
     </div>
 
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
@@ -72,13 +60,10 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
-        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
-
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 100, 250); // Zoom out to see the stickman fully
+        camera.position.set(0, 100, 250);
 
         const renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -86,7 +71,6 @@
 
         const controls = new OrbitControls(camera, renderer.domElement);
 
-        // Lighting
         const light = new THREE.DirectionalLight(0xffffff, 1);
         light.position.set(0, 10, 10);
         scene.add(light);
@@ -95,260 +79,90 @@
         const clock = new THREE.Clock();
         let mixer;
         let character;
-        let cartwheelAnimation;
-        let rain;
+        let idleAnimation;
 
-        // Data structure for models and animations
-
-        // Data structure for models and animations
-        const models = [
-            {
-                id: 'model-1',
-                displayName: 'Model 1',
-                path: 'Ch03_nonPBR.fbx'
-            },
-            {
-                id: 'model-2',
-                displayName: 'Model 2',
-                path: 'Ch22_nonPBR.fbx'
-            }
+        const modelPaths = [
+            'Ch03_nonPBR.fbx',
+            'Ch22_nonPBR.fbx'
         ];
-
-        const animations = [
-            {
-                id: 'animation-1',
-                displayName: 'Animation 1',
-                path: 'Cartwheel.fbx'
-            },
-            {
-                id: 'animation-2',
-                displayName: 'Animation 2',
-                path: 'Cartwheel2.fbx' // Replace with the desired animation file
-            }
-        ];
-        // Generate models and animations lists
-        const modelList = document.getElementById('model-list');
-        const animationList = document.getElementById('animation-list');
-
-        models.forEach(model => {
-            const modelItem = document.createElement('div');
-            modelItem.classList.add('list-item');
-            modelItem.id = model.id;
-            modelItem.textContent = model.displayName;
-            modelList.appendChild(modelItem);
-        });
-        animations.forEach(animation => {
-            const animationItem = document.createElement('div');
-            animationItem.classList.add('list-item');
-            animationItem.id = animation.id;
-            animationItem.textContent = animation.displayName;
-            animationList.appendChild(animationItem);
-        });
-
-
-        // Create a simple stickman for the loading animation
-        function createStickman() {
-            const stickman = new THREE.Object3D();
-            const scaleFactor = 50; // Make the stickman 50x larger
-
-            const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.5 * scaleFactor), material);
-            head.position.y = 2 * scaleFactor;
-            stickman.add(head);
-
-            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.25 * scaleFactor, 0.25 * scaleFactor, 1.5 * scaleFactor), material);
-            body.position.y = 1 * scaleFactor;
-            stickman.add(body);
-
-            const leg1 = new THREE.Mesh(new THREE.CylinderGeometry(0.15 * scaleFactor, 0.15 * scaleFactor, 1 * scaleFactor), material);
-            leg1.position.set(0.3 * scaleFactor, 0.5 * scaleFactor, 0);
-            stickman.add(leg1);
-            const leg2 = new THREE.Mesh(new THREE.CylinderGeometry(0.15 * scaleFactor, 0.15 * scaleFactor, 1 * scaleFactor), material);
-            leg2.position.set(-0.3 * scaleFactor, 0.5 * scaleFactor, 0);
-            stickman.add(leg2);
-
-            const arm1 = new THREE.Mesh(new THREE.CylinderGeometry(0.1 * scaleFactor, 0.1 * scaleFactor, 1 * scaleFactor), material);
-            arm1.position.set(0.7 * scaleFactor, 1.5 * scaleFactor, 0);
-            arm1.rotation.z = 0.5 * Math.PI;
-            stickman.add(arm1);
-
-            const arm2 = new THREE.Mesh(new THREE.CylinderGeometry(0.1 * scaleFactor, 0.1 * scaleFactor, 1 * scaleFactor), material);
-            arm2.position.set(-0.7 * scaleFactor, 1.5 * scaleFactor, 0);
-            arm2.rotation.z = -0.5 * Math.PI;
-            stickman.add(arm2);
-
-            const fontLoader = new FontLoader();
-            fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
-                const loadingText = new TextGeometry('Loading...', {
-                    font: font,
-                    size: 5,
-                    height: 0.1
-                });
-                const loadingTextMesh = new THREE.Mesh(loadingText, material);
-                loadingTextMesh.position.set(-10, 3.5 * scaleFactor, 0);
-                stickman.add(loadingTextMesh);
-            });
-
-            scene.add(stickman);
-
-            // Animate the stickman walking
-            function animateStickman() {
-                const walkingSpeed = 0.05;
-                arm1.rotation.x += walkingSpeed;
-                arm2.rotation.x -= walkingSpeed;
-                leg1.rotation.x += walkingSpeed;
-                leg2.rotation.x -= walkingSpeed;
-            }
-
-            return { stickman, animateStickman };
-        }
-
-        const { stickman, animateStickman } = createStickman();
-
 
         function createCharacter(modelPath) {
-            scene.add(stickman); // Add the stickman while the character is loading
-
             loader.load(modelPath, (object) => {
                 character = object;
                 scene.add(character);
-                scene.remove(stickman); // Remove the stickman when the character is loaded
-
-                // Load and play default animation
-                loadAnimation('Cartwheel.fbx');
+                loadAnimation('Dance.fbx');
             });
         }
 
         function loadAnimation(animationPath) {
-            function filterValidTracks(clip, object) {
-                const validTracks = clip.tracks.filter((track) => {
-                    const nodeName = track.name.split('.')[0];
-                    return object.getObjectByName(nodeName) !== undefined;
-                });
-
-                return new THREE.AnimationClip(clip.name, clip.duration, validTracks);
-            }
-
-            // In your loadAnimation function
             loader.load(animationPath, (fbx) => {
                 if (mixer) mixer.stopAllAction();
                 mixer = new THREE.AnimationMixer(character);
-                const animations = fbx.animations;
-                if (animations && animations[0]) {
-                    const validAnimationClip = filterValidTracks(animations[0], character);
-                    cartwheelAnimation = mixer.clipAction(validAnimationClip);
-                    cartwheelAnimation.loop = THREE.LoopRepeat;
-                    cartwheelAnimation.play();
-                }
+                const action = mixer.clipAction(fbx.animations[0]);
+                action.play();
+                idleAnimation = setTimeout(() => {
+                    action.stop();
+                    loadAnimation('Idle.fbx');
+                }, 4000);
             });
         }
 
-        // Model and animation list event listeners
-        models.forEach(model => {
-            document.getElementById(model.id).addEventListener('click', () => {
-                if (character) {
-                    scene.remove(character);
-                    scene.add(stickman); // Add the stickman while a model is loading
-                }
-                createCharacter(model.path);
-            });
-        });
-
-        animations.forEach(animation => {
-            document.getElementById(animation.id).addEventListener('click', () => {
-                if (cartwheelAnimation) cartwheelAnimation.stop();
-                loadAnimation(animation.path);
-            });
-        });
-
-
-        // Create rain
-        function createRain() {
-            const rainDropCount = 10000;
-            const rainDropGeometry = new THREE.BufferGeometry();
-            const rainDropPositions = new Float32Array(rainDropCount * 3);
-
-            for (let i = 0; i < rainDropCount * 3; i += 3) {
-                rainDropPositions[i] = Math.random() * 1000 - 500;
-                rainDropPositions[i + 1] = Math.random() * 400;
-                rainDropPositions[i + 2] = Math.random() * 1000 - 500;
-            }
-
-            rainDropGeometry.setAttribute('position', new THREE.BufferAttribute(rainDropPositions, 3));
-
-            const rainDropMaterial = new THREE.PointsMaterial({
-                color: 0x00aaff,
-                size: 0.1,
-                transparent: true,
-                opacity: 0.8
-            });
-
-            rain = new THREE.Points(rainDropGeometry, rainDropMaterial);
-            scene.add(rain);
-
-            // Update rain function
-            function updateRain() {
-                const positions = rain.geometry.attributes.position.array;
-                const speed = 2;
-                for (let i = 1; i < positions.length; i += 3) {
-                    positions[i] -= speed;
-                    if (positions[i] < 0) {
-                        positions[i] = 400;
-                    }
-                }
-
-                rain.geometry.attributes.position.needsUpdate = true;
-            }
-
-            return updateRain;
+        function updateCharacter(delta) {
+            if (mixer) mixer.update(delta);
         }
 
-        // Create default character and animation
-        createCharacter('Ch03_nonPBR.fbx');
+        const onKeyDown = (event) => {
+            clearTimeout(idleAnimation);
+            const keyCode = event.keyCode;
 
-        const updateRain = createRain();
+            if (keyCode === 37) { // Left Arrow Key
+                character.position.x -= 2;
+            } else if (keyCode === 38) { // Up Arrow Key
+                character.position.z -= 2;
+            } else if (keyCode === 39) { // Right Arrow Key
+                character.position.x += 2;
+            } else if (keyCode === 40) { // Down Arrow Key
+                character.position.z += 2;
+            }
 
-        // Background color picker
-        const bgColorPicker = document.getElementById('bgColorPicker');
-        bgColorPicker.addEventListener('input', () => {
-            const color = new THREE.Color(bgColorPicker.value);
-            scene.background = color;
+            loadAnimation('Walking.fbx');
+        };
+
+        const onKeyUp = (event) => {
+            const keyCode = event.keyCode;
+
+            if (keyCode >= 37 && keyCode <= 40) {
+                loadAnimation('Idle.fbx');
+                idleAnimation = setTimeout(() => {
+                    loadAnimation('Dance.fbx');
+                }, 4000);
+            }
+        };
+
+        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener('keyup', onKeyUp);
+
+        document.getElementById('model-1').addEventListener('click', () => {
+            if (character) scene.remove(character);
+            createCharacter(modelPaths[0]);
+            document.getElementById('model-selection').style.display = 'none';
         });
 
-        // Rain color picker
-        const rainColorPicker = document.getElementById('rainColorPicker');
-        rainColorPicker.addEventListener('input', () => {
-            const color = new THREE.Color(rainColorPicker.value);
-            rain.material.color = color;
+        document.getElementById('model-2').addEventListener('click', () => {
+            if (character) scene.remove(character);
+            createCharacter(modelPaths[1]);
+            document.getElementById('model-selection').style.display = 'none';
         });
 
-        function animate() {
+        const animate = function () {
             requestAnimationFrame(animate);
-            animateStickman(); // Animate the stickman while the character is not loaded
-            updateRain(); // Update the rain position
-            if (mixer && character && cartwheelAnimation) {
-                const delta = clock.getDelta();
-                mixer.update(delta);
-
-                // Calculate the character's position and rotation along the circle
-                const circleRadius = 10;
-                const cartwheelDuration = cartwheelAnimation.getClip().duration;
-                const elapsedTime = cartwheelAnimation.time;
-                const totalDistance = 2 * Math.PI * circleRadius;
-                const distancePerCycle = totalDistance / (cartwheelDuration * 50); // Slow down the circulation significantly
-                const distanceTraveled = (elapsedTime * distancePerCycle) % totalDistance;
-
-                const angle = (distanceTraveled / totalDistance) * 2 * Math.PI;
-                character.position.x = circleRadius * Math.cos(angle);
-                character.position.z = circleRadius * Math.sin(angle);
-                character.rotation.y = angle - Math.PI / 2; // Reverse the circular motion direction
-            }
+            const delta = clock.getDelta();
+            updateCharacter(delta);
+            controls.update();
             renderer.render(scene, camera);
-        }
+        };
 
         animate();
-
     </script>
 </body>
 
