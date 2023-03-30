@@ -19,6 +19,30 @@
             top: 10px;
             left: 10px;
         }
+
+        #model-list,
+        #animation-list {
+            position: fixed;
+            right: 10px;
+            padding: 10px;
+            border: 1px solid white;
+            border-radius: 5px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            cursor: pointer;
+        }
+
+        #model-list {
+            top: 10px;
+        }
+
+        #animation-list {
+            bottom: 20px;
+        }
+
+        .list-item {
+            margin-bottom: 5px;
+        }
     </style>
 </head>
 
@@ -27,15 +51,21 @@
         <label>Background Color: <input type="color" id="bgColorPicker" value="#000000"></label><br>
         <label>Raindrop Color: <input type="color" id="rainColorPicker" value="#00aaff"></label>
     </div>
+    <div id="model-list">
+        <h3>Models:</h3>
+    </div>
+    <div id="animation-list">
+        <h3>Animations:</h3>
+    </div>
 
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
-      {
-        "imports": {
-          "three": "https://unpkg.com/three@0.150.1/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/"
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.150.1/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/"
+            }
         }
-      }
     </script>
 
     <script type="module">
@@ -67,6 +97,54 @@
         let character;
         let cartwheelAnimation;
         let rain;
+
+        // Data structure for models and animations
+
+        // Data structure for models and animations
+        const models = [
+            {
+                id: 'model-1',
+                displayName: 'Model 1',
+                path: 'Ch03_nonPBR.fbx'
+            },
+            {
+                id: 'model-2',
+                displayName: 'Model 2',
+                path: 'Ch22_nonPBR.fbx'
+            }
+        ];
+
+        const animations = [
+            {
+                id: 'animation-1',
+                displayName: 'Animation 1',
+                path: 'Cartwheel.fbx'
+            },
+            {
+                id: 'animation-2',
+                displayName: 'Animation 2',
+                path: 'Cartwheel2.fbx' // Replace with the desired animation file
+            }
+        ];
+        // Generate models and animations lists
+        const modelList = document.getElementById('model-list');
+        const animationList = document.getElementById('animation-list');
+
+        models.forEach(model => {
+            const modelItem = document.createElement('div');
+            modelItem.classList.add('list-item');
+            modelItem.id = model.id;
+            modelItem.textContent = model.displayName;
+            modelList.appendChild(modelItem);
+        });
+        animations.forEach(animation => {
+            const animationItem = document.createElement('div');
+            animationItem.classList.add('list-item');
+            animationItem.id = animation.id;
+            animationItem.textContent = animation.displayName;
+            animationList.appendChild(animationItem);
+        });
+
 
         // Create a simple stickman for the loading animation
         function createStickman() {
@@ -128,22 +206,62 @@
 
         const { stickman, animateStickman } = createStickman();
 
-        // Create character
-        function createCharacter() {
-            loader.load('Ch03_nonPBR.fbx', (object) => {
+
+        function createCharacter(modelPath) {
+            scene.add(stickman); // Add the stickman while the character is loading
+
+            loader.load(modelPath, (object) => {
                 character = object;
                 scene.add(character);
                 scene.remove(stickman); // Remove the stickman when the character is loaded
 
-                // Load and play cartwheel animation
-                loader.load('Cartwheel.fbx', (animationObject) => {
-                    mixer = new THREE.AnimationMixer(character);
-                    cartwheelAnimation = mixer.clipAction(animationObject.animations[0]);
-                    cartwheelAnimation.loop = THREE.LoopRepeat;
-                    cartwheelAnimation.play();
-                });
+                // Load and play default animation
+                loadAnimation('Cartwheel.fbx');
             });
         }
+
+        function loadAnimation(animationPath) {
+            function filterValidTracks(clip, object) {
+                const validTracks = clip.tracks.filter((track) => {
+                    const nodeName = track.name.split('.')[0];
+                    return object.getObjectByName(nodeName) !== undefined;
+                });
+
+                return new THREE.AnimationClip(clip.name, clip.duration, validTracks);
+            }
+
+            // In your loadAnimation function
+            loader.load(animationPath, (fbx) => {
+                if (mixer) mixer.stopAllAction();
+                mixer = new THREE.AnimationMixer(character);
+                const animations = fbx.animations;
+                if (animations && animations[0]) {
+                    const validAnimationClip = filterValidTracks(animations[0], character);
+                    cartwheelAnimation = mixer.clipAction(validAnimationClip);
+                    cartwheelAnimation.loop = THREE.LoopRepeat;
+                    cartwheelAnimation.play();
+                }
+            });
+        }
+
+        // Model and animation list event listeners
+        models.forEach(model => {
+            document.getElementById(model.id).addEventListener('click', () => {
+                if (character) {
+                    scene.remove(character);
+                    scene.add(stickman); // Add the stickman while a model is loading
+                }
+                createCharacter(model.path);
+            });
+        });
+
+        animations.forEach(animation => {
+            document.getElementById(animation.id).addEventListener('click', () => {
+                if (cartwheelAnimation) cartwheelAnimation.stop();
+                loadAnimation(animation.path);
+            });
+        });
+
 
         // Create rain
         function createRain() {
@@ -186,7 +304,9 @@
             return updateRain;
         }
 
-        createCharacter();
+        // Create default character and animation
+        createCharacter('Ch03_nonPBR.fbx');
+
         const updateRain = createRain();
 
         // Background color picker
