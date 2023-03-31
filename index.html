@@ -470,21 +470,6 @@
             return stickman;
         }
 
-        // async function loadCharacterModel(modelPath) {
-        //     return new Promise((resolve, reject) => {
-        //         loader.load(modelPath, (object) => {
-        //             mixer = new THREE.AnimationMixer(object);
-        //             const action = mixer.clipAction(object.animations[0]);
-        //             action.play();
-        //             character = object;
-        //             character.position.set(0, 0, 0);
-        //             scene.remove(stickman);
-        //             scene.add(character);
-        //             resolve();
-        //         }, undefined, reject);
-        //     });
-        // }
-
         function updateCharacter(delta) {
             if (mixer) {
                 mixer.update(delta);
@@ -500,21 +485,19 @@
         // Update model buttons event listeners
         model1Button.addEventListener('click', async () => {
             modelSelection.style.display = 'none';
-            scene.add(stickman);
-            await loadCharacterModel('models/Ch03_nonPBR.fbx', animations);
+            await world.spawnPuppet('models/Ch03_nonPBR.fbx', animations.mobility, animations.idling);
         });
 
         model2Button.addEventListener('click', async () => {
             modelSelection.style.display = 'none';
-            scene.add(stickman);
-            await loadCharacterModel('models/Remy.fbx', animations);
+            await world.spawnPuppet('models/Remy.fbx', animations.mobility, animations.idling);
         });
 
         model3Button.addEventListener('click', async () => {
             modelSelection.style.display = 'none';
-            scene.add(stickman);
-            await loadCharacterModel('models/Ch21_nonPBR.fbx', animations);
+            await world.spawnPuppet('models/Ch21_nonPBR.fbx', animations.mobility, animations.idling);
         });
+
 
         function animateStickman() {
             stickmanArmAngle += stickmanArmSpeed;
@@ -527,55 +510,10 @@
         }
 
         // Add the animation files to an array
-        const animations = ['run.fbx', 'Cartwheel.fbx', 'Capoeira.fbx'];
-        let activeAnimationIndex = 0;
-
-        // ...
-
-        let actions = [];
-
-        async function loadCharacterModel(modelPath, animationPaths) {
-            return new Promise((resolve, reject) => {
-                loader.load(modelPath, async (object) => {
-                    mixer = new THREE.AnimationMixer(object);
-                    character = object;
-                    character.position.set(0, 0, 0);
-                    scene.remove(stickman);
-                    scene.add(character);
-
-                    // Load animations
-                    for (const animationPath of animationPaths) {
-                        await new Promise((resolveAnim, rejectAnim) => {
-                            loader.load('models/' + animationPath, (anim) => {
-                                const action = mixer.clipAction(anim.animations[0]);
-                                action.setLoop(THREE.LoopRepeat);
-                                actions.push(action);
-                                resolveAnim();
-                            }, undefined, rejectAnim);
-                        });
-                    }
-
-                    // Play the first animation
-                    playAnimation(activeAnimationIndex);
-                    resolve();
-                }, undefined, reject);
-            });
-        }
-
-        function playAnimation(index) {
-            activeAnimationIndex = index;
-            actions.forEach((action, i) => {
-                if (i === index) {
-                    action.reset().play();
-                    updateCircle(i, true);
-                } else {
-                    action.stop();
-                    updateCircle(i, false);
-                }
-            });
-        }
-
-        // ...
+        const animations = {
+            mobility: ['run.fbx', 'Cartwheel.fbx'],
+            idling: ['Capoeira.fbx', 'Capoeira.fbx']
+        };
 
         function updateCircle(index, isActive) {
             const circle = document.getElementById('circle-' + index);
@@ -593,7 +531,7 @@
         circleContainer.style.left = '10px';
         document.body.appendChild(circleContainer);
 
-        animations.forEach((animation, index) => {
+        animations['idling'].forEach((animation, index) => {
             const circle = document.createElement('div');
             circle.id = 'circle-' + index;
             circle.style.width = '20px';
@@ -609,30 +547,179 @@
             });
         });
 
+        class Engine {
+            constructor(puppets) {
+                this.puppets = puppets;
+            }
+
+            update(delta) {
+                this.handleCollisions();
+            }
+
+            handleCollisions() {
+                for (let i = 0; i < this.puppets.length; i++) {
+                    for (let j = i + 1; j < this.puppets.length; j++) {
+                        const puppetA = this.puppets[i];
+                        const puppetB = this.puppets[j];
+
+                        // Check for collisions and adjust puppet positions if necessary
+                        // You can use a physics library like Cannon.js or Ammo.js for this
+                    }
+                }
+            }
+        }
+
+        class CustomWorld {
+            constructor() {
+                this.puppets = [];
+                this.masterOfPuppets = new MasterOfPuppets();
+                this.rain = new Rain();
+                this.engine = new Engine(this.puppets);
+            }
+
+            async spawnPuppet(modelPath, mobilityPaths, idlingPaths) {
+                const puppet = new Puppet();
+                await puppet.loadModel(modelPath);
+                await puppet.loadAnimations(mobilityPaths, idlingPaths);
+                puppet.chooseRandomIdlingAnimation();
+
+                this.puppets.push(puppet);
+                this.scene.add(puppet.object);
+            }
+
+            update(delta) {
+                this.masterOfPuppets.update(this.puppets, delta);
+                this.engine.update(delta);
+                this.rain.update(delta);
+            }
+            addPuppet(puppet) {
+                this.puppets.push(puppet);
+            }
+
+        }
+
+        class Rain {
+            constructor() {
+                // Initialize raindrop properties and geometry
+            }
+
+            update(delta) {
+                // Update raindrop positions
+            }
+        }
+
+        class Puppet {
+            constructor() {
+                this.object = null;
+                this.mixer = null;
+                this.mobilityAnimations = [];
+                this.idlingAnimations = [];
+                this.currentAnimation = null;
+                this.targetPosition = null;
+            }
+
+            async loadModel(modelPath) {
+                return new Promise((resolve, reject) => {
+                    const loader = new FBXLoader();
+                    loader.load(modelPath, (object) => {
+                        this.object = object;
+                        this.mixer = new THREE.AnimationMixer(this.object);
+                        resolve();
+                    }, undefined, reject);
+                });
+            }
+            async loadAnimations(mobilityPaths, idlingPaths) {
+                const loader = new FBXLoader();
+                this.mobilityAnimations = await Promise.all(
+                    mobilityPaths.map((path) => this.loadAnimation(loader, 'models/' + path))
+                );
+                this.idlingAnimations = await Promise.all(
+                    idlingPaths.map((path) => this.loadAnimation(loader, 'models/' + path))
+                );
+            }
+
+            loadAnimation(loader, path) {
+                return new Promise((resolve, reject) => {
+                    loader.load(
+                        path,
+                        (object) => {
+                            resolve(object.animations[0]);
+                        },
+                        undefined,
+                        reject
+                    );
+                });
+            }
+
+
+            update(delta) {
+                // Update puppet animations and position
+            }
+        }
+
+        class MasterOfPuppets {
+            constructor() {
+                this.voidPosition = null;
+            }
+
+            update(puppets, delta) {
+                if (this.voidPosition) {
+                    puppets.forEach((puppet) => {
+                        // Calculate new target position for puppet
+                        const targetPosition = this.calculateTargetPosition(puppet);
+
+                        // Update puppet's target position and switch to mobility animation if necessary
+                        if (puppet.targetPosition.distanceTo(targetPosition) > 1) {
+                            puppet.targetPosition = targetPosition;
+                            puppet.setMobilityAnimation();
+                        } else {
+                            puppet.setIdlingAnimation();
+                        }
+                    });
+                }
+            }
+
+            calculateTargetPosition(puppet) {
+                // Calculate the target position for the puppet based on the void position and puppet formation
+            }
+        }
+
+        const world = new CustomWorld();
+
         const animate = function () {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
-            animateStickman();
-            if (mixer) {
-                mixer.update(delta);
-            }
-            updateCharacter(delta);
+            world.update(delta);
 
-            const rainColor = new THREE.Color(settings.rainColor);
             for (let i = 0; i < rain.length; i++) {
                 const raindrop = rain[i];
                 raindrop.position.y -= rainSpeed;
                 if (raindrop.position.y < 0) {
                     raindrop.position.y = Math.random() * rainHeight;
                 }
-                raindrop.material.color.set(rainColor);
+                raindrop.material.color.set(settings.rainColor);
             }
-
             controls.update();
             renderer.render(scene, camera);
-        };
+        }
+
+        document.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            const mouse = new THREE.Vector2();
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children);
+
+            if (intersects.length > 0) {
+                world.masterOfPuppets.setVoidPosition(intersects[0].point);
+            }
+        });
 
         animate();
+
     </script>
 
 </body>
