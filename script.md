@@ -1,81 +1,5 @@
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Animated Character Game</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-        }
-
-        canvas {
-            display: block;
-        }
-
-        #model-selection {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #model-selection h2 {
-            color: white;
-        }
-
-        .model-button {
-            padding: 10px 20px;
-            background-color: white;
-            border: 1px solid black;
-            border-radius: 5px;
-            margin: 10px;
-            cursor: pointer;
-        }
-
-        #hud {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-        }
-
-        #score {
-            font-size: 0px;
-            margin-bottom: 10px;
-        }
-
-        .color-picker {
-            margin-bottom: 5px;
-        }
-    </style>
-</head>
-
-<body>
-    <div id="model-selection">
-        <h2>Select Your Character</h2>
-        <button id="model-1" class="model-button">Glasses</button>
-        <button id="model-2" class="model-button">OK</button>
-        <button id="model-3" class="model-button">Remy</button>
-    </div>
-    <div id="hud">
-        <div id="score">Score: 0</div>
-        <label for="bgColorPicker" class="color-picker">Background Color:</label>
-        <input type="color" id="bgColorPicker" class="color-picker" value="#119911">
-        <label for="rainColorPicker" class="color-picker">Raindrop Color:</label>
-        <input type="color" id="rainColorPicker" class="color-picker" value="#00f0ff">
-    </div>
-
+we can use these scripts
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
         {
@@ -85,247 +9,12 @@
             }
         }
     </script>
+
+    and any of this code as we see fit
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-
-        class Vector4 {
-            constructor(x = 0, y = 0, z = 0, w = 0) {
-                this.x = x;
-                this.y = y;
-                this.z = z;
-                this.w = w;
-            }
-
-            add(v) {
-                return new Vector4(this.x + v.x, this.y + v.y, this.z + v.z, this.w + v.w);
-            }
-        }
-
-        class Matrix5 {
-            constructor() {
-                this.elements = new Float32Array(25).fill(0);
-            }
-
-            // Add matrix operations (multiplication, inversion, etc.) as needed...
-        }
-
-        class FourDCamera extends THREE.Camera {
-            constructor(fov, aspect, near, far) {
-                super();
-                this.projectionMatrix = new Matrix5();
-                // Set up the initial projection matrix
-            }
-
-            // Implement methods to update the projection matrix and other camera properties as needed...
-        }
-
-        class TesseractGeometry extends THREE.BufferGeometry {
-            constructor() {
-                super();
-                // Generate 4D vertices, edges, and faces
-                // Create custom vertex attributes for the 4D vertices and normals
-            }
-        }
-
-
-        class Raindrop4D extends THREE.BufferGeometry {
-            constructor(radius, widthSegments, heightSegments) {
-                super();
-
-                const raindropGeo = new THREE.SphereGeometry(radius, widthSegments, heightSegments);
-                this.setIndex(raindropGeo.index);
-                this.setAttribute('position', raindropGeo.getAttribute('position'));
-                this.setAttribute('normal', raindropGeo.getAttribute('normal'));
-
-                const vertexCount = raindropGeo.getAttribute('position').count;
-                const position4D = new Float32Array(vertexCount * 4);
-                const wValues = [0, 0, 0, 1]; // Modify these values to experiment with different 4D positions
-
-                for (let i = 0; i < vertexCount; i++) {
-                    const position3D = raindropGeo.getAttribute('position').array.slice(i * 3, i * 3 + 3);
-                    position4D.set(position3D, i * 4);
-                    position4D[i * 4 + 3] = wValues[i % 4];
-                }
-
-                this.setAttribute('position4D', new THREE.BufferAttribute(position4D, 4));
-            }
-        }
-
-
-
-        class FourDMaterial extends THREE.ShaderMaterial {
-            constructor() {
-                const uniforms = THREE.UniformsUtils.merge([
-                    THREE.UniformsLib.common,
-                    {
-                        projectionMatrix4D: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
-                    },
-                ]);
-
-
-                const vertexShader = `
-  attribute vec4 position4D;
-  uniform vec4 projectionMatrix4D[4];
-  varying vec3 vPosition;
-  varying vec3 vNormal;
-  void main() {
-    vPosition = position;
-    vNormal = normal;
-    vec4 position3D = vec4(
-      dot(position4D, projectionMatrix4D[0]),
-      dot(position4D, projectionMatrix4D[1]),
-      dot(position4D, projectionMatrix4D[2]),
-      dot(position4D, projectionMatrix4D[3])
-    );
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position3D.xyz, 1.0);
-  }
-`;
-
-
-                const fragmentShader = `
-    uniform vec3 diffuse;
-    varying vec3 vPosition;
-    varying vec3 vNormal;
-    void main() {
-    vec3 light = normalize(vec3(1.0, 1.0, 1.0));
-    float brightness = max(dot(vNormal, light), 0.1);
-    gl_FragColor = vec4(diffuse * brightness, 0.5);
-    }
-`;
-
-                super({
-                    uniforms: uniforms,
-                    vertexShader: vertexShader,
-                    fragmentShader: fragmentShader,
-                    transparent: true,
-                });
-            }
-        }
-
-
-        class Four {
-
-            constructor(container) {
-                this.container = container;
-                this.clock = clock;
-                this.renderer = null;
-                this.scene = null;
-                this.camera = null;
-                this.width = window.innerWidth;
-                this.height = window.innerHeight;
-                this.raindrops = [];
-                this.initKeyboardControls();
-
-            }
-
-            initScene() {
-                this.scene = new THREE.Scene();
-            }
-
-            initCamera() {
-                this.camera = new THREE.PerspectiveCamera(75, this.width / this.height, 0.1, 1000);
-                this.camera.position.z = 5;
-            }
-
-            animate() {
-                requestAnimationFrame(() => this.animate());
-                this.render();
-            }
-
-            initKeyboardControls() {
-                document.addEventListener('keydown', (event) => this.onKeyDown(event));
-                document.addEventListener('keyup', (event) => this.onKeyUp(event));
-            }
-
-            initObjects() {
-                const raindrop = new Raindrop4D(0.5, 8, 8);
-                const material = new FourDMaterial();
-                const mesh = new THREE.Mesh(raindrop, material);
-                mesh.name = 'raindrop';
-                this.scene.add(mesh);
-            }
-
-            onKeyDown(event) {
-                if (event.code === 'ArrowUp') {
-                    this.translateRaindrop4D(0.1);
-                } else if (event.code === 'ArrowDown') {
-                    this.translateRaindrop4D(-0.1);
-                }
-            }
-
-            onKeyUp(event) {
-                // Handle key up events (if needed)
-            }
-
-            translateRaindrop4D(dw) {
-                const raindrop = this.scene.getObjectByName('raindrop');
-                if (!raindrop) return;
-                const position4D = raindrop.geometry.getAttribute('position4D');
-                for (let i = 0; i < position4D.count; i++) {
-                    position4D.array[i * 4 + 3] += dw;
-                }
-                position4D.needsUpdate = true;
-            }
-
-
-            start() {
-                this.initRenderer();
-                this.initScene();
-                this.initCamera();
-                this.animate();
-                this.initObjects();
-            }
-
-            initRenderer() {
-                this.renderer = new THREE.WebGLRenderer({ antialias: true });
-                this.renderer.setSize(this.width, this.height);
-                this.container.appendChild(this.renderer.domElement);
-            }
-
-            initObjects() {
-                const numRaindrops = 100;
-
-                for (let i = 0; i < numRaindrops; i++) {
-                    const raindrop = new Raindrop4D(0.5, 8, 8);
-                    const material = new FourDMaterial();
-                    const mesh = new THREE.Mesh(raindrop, material);
-                    mesh.position.set(Math.random() * 50 - 25, Math.random() * 50 - 25, Math.random() * 50 - 25);
-                    mesh.userData.w = Math.random() * 50 - 25; // Set initial w-coordinate
-                    this.raindrops.push(mesh);
-                    this.scene.add(mesh);
-                }
-            }
-
-            updateRaindrops(deltaTime) {
-                const speed = 5; // Adjust this value to control the speed of raindrops
-
-                for (const raindrop of this.raindrops) {
-                    raindrop.userData.w += deltaTime * speed;
-                    const position4D = raindrop.geometry.getAttribute('position4D');
-
-                    for (let i = 0; i < position4D.count; i++) {
-                        position4D.array[i * 4 + 3] = raindrop.userData.w;
-                    }
-
-                    position4D.needsUpdate = true;
-                }
-            }
-
-            render() {
-                const deltaTime = this.clock.getDelta();
-                this.updateRaindrops(deltaTime);
-                this.renderer.render(this.scene, this.camera);
-            }
-        }
-
-
-        document.addEventListener("DOMContentLoaded", function () {
-            const container = document.getElementsByTagName("canvas")[0];
-            const four = new Four(container);
-            four.start();
-        });
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -456,7 +145,7 @@
             scene.add(stickman);
             await loadCharacterModel('models/Ch21_nonPBR.fbx', animations);
         });
-
+        
         function animateStickman() {
             stickmanArmAngle += stickmanArmSpeed;
             stickmanLegAngle += stickmanLegSpeed;
@@ -575,7 +264,25 @@
 
         animate();
     </script>
+Begin::
+Make my world
 
-</body>
+html5 canvas fullscreen world. make it a huge world, zoom out.
+Add a colorpicker to change canvas background color.
+Add rain to cover the world and a colorpicker to change rain color.
 
-</html>
+initially I have these puppet models, [Ch03_nonPBR.fbx, Remy.fbx, Ch21_nonPBR.fbx] under models/ . will add more later
+
+a puppet has mobility animations (currently only ['run.fbx', 'Cartwheel.fbx',] under models/ .will add more later) and idling (currently only ['Capoeira.fbx', 'Dance.fbx'] under models/ . will add more later)
+
+one by one each puppet will go to a free space once ready (loaded one by one),
+keeping distance between the puppets (puppets are very large). the puppets do not collide. once idle, a puppet plays any combination of idling animations available in any order.
+
+with a right click the master casts a void eating itself.
+
+ the puppets follow the master's void (mobility animations, realistically as possible). puppets take a group formation with the master's orders around the void (while keeping distance from each other and avoiding collision)
+
+
+Implementation notes:
+Use classes for better code quality (CustomWorld the world, rain, Puppet the character, MasterOfPuppets to orchestrate the puppets, Engine for phisycs etc...)
+
