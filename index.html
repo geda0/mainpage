@@ -44,14 +44,14 @@
         #hud {
             position: fixed;
             top: 10px;
-            right: 10px;
+            left: 30px;
             display: flex;
             flex-direction: column;
             align-items: flex-end;
         }
 
         #score {
-            font-size: 0px;
+            font-size: 21px;
             margin-bottom: 10px;
         }
 
@@ -69,13 +69,13 @@
         <button id="model-3" class="model-button">Remy</button>
     </div>
     <div id="hud">
-        <div id="score">Score: 0</div>
         <label for="bgColorPicker" class="color-picker">Background Color:</label>
         <input type="color" id="bgColorPicker" class="color-picker" value="#119911">
         <label for="rainColorPicker" class="color-picker">Raindrop Color:</label>
         <input type="color" id="rainColorPicker" class="color-picker" value="#00f0ff">
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
     <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
         {
@@ -89,6 +89,16 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+
+        class Settings {
+            constructor() {
+                this.raindropSize = 0.5;
+                this.raindropSpeed = 5;
+                this.rotationSpeed = 0.01;
+                this.wPosition = 0;
+                this.wRotation = 0;
+            }
+        }
 
         class Vector4 {
             constructor(x = 0, y = 0, z = 0, w = 0) {
@@ -217,7 +227,21 @@
                 this.height = window.innerHeight;
                 this.raindrops = [];
                 this.initKeyboardControls();
+                this.settings = new Settings();
+                this.initGUI();
+            }
 
+            // ... existing code ...
+
+            initGUI() {
+                const gui = new dat.GUI();
+                const folder4D = gui.addFolder('4D Controls');
+                folder4D.add(this.settings, 'raindropSize', 0.1, 2).onChange(() => this.updateRaindropSize());
+                folder4D.add(this.settings, 'raindropSpeed', 0, 10);
+                folder4D.add(this.settings, 'rotationSpeed', 0, 0.1);
+                folder4D.add(this.settings, 'wPosition', -50, 50);
+                folder4D.add(this.settings, 'wRotation', -Math.PI, Math.PI);
+                folder4D.open();
             }
 
             initScene() {
@@ -239,8 +263,15 @@
                 document.addEventListener('keyup', (event) => this.onKeyUp(event));
             }
 
+            updateRaindropSize() {
+                for (const raindrop of this.raindrops) {
+                    const newRaindropGeo = new Raindrop4D(this.settings.raindropSize, 8, 8);
+                    raindrop.geometry.copy(newRaindropGeo);
+                }
+            }
+
             initObjects() {
-                const raindrop = new Raindrop4D(0.5, 8, 8);
+                const raindrop = new Raindrop4D(this.settings.raindropSize, 8, 8);
                 const material = new FourDMaterial();
                 const mesh = new THREE.Mesh(raindrop, material);
                 mesh.name = 'raindrop';
@@ -260,6 +291,7 @@
             }
 
             translateRaindrop4D(dw) {
+                dw = this.settings.wPosition;
                 const raindrop = this.scene.getObjectByName('raindrop');
                 if (!raindrop) return;
                 const position4D = raindrop.geometry.getAttribute('position4D');
@@ -267,6 +299,26 @@
                     position4D.array[i * 4 + 3] += dw;
                 }
                 position4D.needsUpdate = true;
+            }
+
+            rotateScene4D() {
+                const wRotation = this.settings.wRotation;
+                const sinW = Math.sin(wRotation);
+                const cosW = Math.cos(wRotation);
+
+                for (const raindrop of this.raindrops) {
+                    const position4D = raindrop.geometry.getAttribute('position4D');
+
+                    for (let i = 0; i < position4D.count; i++) {
+                        const z = position4D.array[i * 4 + 2];
+                        const w = position4D.array[i * 4 + 3];
+
+                        position4D.array[i * 4 + 2] = z * cosW - w * sinW;
+                        position4D.array[i * 4 + 3] = z * sinW + w * cosW;
+                    }
+
+                    position4D.needsUpdate = true;
+                }
             }
 
 
@@ -299,7 +351,7 @@
             }
 
             updateRaindrops(deltaTime) {
-                const speed = 5; // Adjust this value to control the speed of raindrops
+                const speed = this.settings.raindropSpeed;
 
                 for (const raindrop of this.raindrops) {
                     raindrop.userData.w += deltaTime * speed;
@@ -313,9 +365,18 @@
                 }
             }
 
+
+            rotateScene(deltaTime) {
+                const rotationSpeed = this.settings.rotationSpeed;
+                this.scene.rotation.x += rotationSpeed * deltaTime;
+                this.scene.rotation.y += rotationSpeed * deltaTime;
+            }
+
             render() {
                 const deltaTime = this.clock.getDelta();
                 this.updateRaindrops(deltaTime);
+                this.rotateScene(deltaTime);
+                this.rotateScene4D();
                 this.renderer.render(this.scene, this.camera);
             }
         }
